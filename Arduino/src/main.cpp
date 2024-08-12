@@ -7,57 +7,58 @@
 //Transmitter  and Sensor Unit
 
 # include <SoftwareSerial.h>
-# include "avr8-stub.h"
+// # include "avr8-stub.h"
 # include "app_api.h"
 
 SoftwareSerial HC12(4, 5);
 
-int height_of_tank = 190;
-int min_level_of_water = 30; //This is the sensor reading when the tank is empty
-int max_level_of_water = height_of_tank - 25; //This is the sensor reading  when the tank is full
-
-
-long level_of_water_old = 0;
+long distance_old = 0;
 int Time = 0;
 int trig = 3; //trigger pin of ultrasonic sensor
 int echo = 2; //Echo pin of ultrasonic sensor
+int senzor_id = 1;
+int height_of_tank = 200;
+int OUTLIER_THRESHOLD=5;
+int INLIER_THRESHOLD=5;
 
 void setup() {
-  debug_init();
+//  debug_init();
   //To calibrate the  sensor delete the comment symbols in the following code
-  //Serial.begin(9600);
+  Serial.begin(9600);
   HC12.begin(9600);
   pinMode(trig, OUTPUT);
   digitalWrite(trig, LOW);
   pinMode(echo,  INPUT);
 }
 
-void Transmit_data(int senzor_id, int percentage_of_full, int distance) {
-  int crc_sum = senzor_id + percentage_of_full + distance;
-  String message = String(1) + "," + String(percentage_of_full) + "," + String(distance) + "," + String(crc_sum);
-  HC12.println(message); 
+void Transmit_data(int senzor_id, int distance) {
+  int crc_sum = senzor_id + distance;
+  String message = String(senzor_id) + "," + String(distance) + "," + String(crc_sum);
+  HC12.println(message);
+  Serial.println(message); 
 }
 
 void Send_data(int distance) {
 
-  int level_of_water = height_of_tank - distance;
-  // maps the sensor values to a number  between 0 and 100
-  int percentage_of_full = map (level_of_water, min_level_of_water, max_level_of_water, 0, 100);
-
-  //This sends data every 100 ms
-  if (Time == 1000) {
-    Transmit_data(1, percentage_of_full, distance);
+   //This sends data every 100 ms
+  if (Time > 1000) {
+    Serial.println("Sending because time");
+    Transmit_data(senzor_id, distance);
     Time = 0;
+
+    return;
   }
- //This sends data instantly when tank water level is changing
-  if (level_of_water != level_of_water_old) {   
-    Transmit_data(1, percentage_of_full, distance);
-    level_of_water_old = level_of_water;
+
+  //This sends data instantly when tank water level is changing
+  if (distance != distance_old) {   
+    Transmit_data(senzor_id, distance);
+    distance_old = distance;
   }
+
+  return;
 }
 
-void  loop() {
-  Time++;
+int getDistance() {
   // Standerd code for getting value from the ultrasonic  sensor
   digitalWrite(trig, LOW); 
   delayMicroseconds(5);
@@ -65,10 +66,31 @@ void  loop() {
   delayMicroseconds(10);
   digitalWrite(trig, LOW);
   
-  int distance  = ( pulseIn(echo, HIGH, 100))*0.034/2;   //this gets the value in centimeters
+  return(pulseIn(echo, HIGH, 30000)*0.034/2);   //this gets the value in centimeters
+}
 
+int getAverageDistance(int numSamples) {
+  long sum = 0;
+  for (int i = 0; i < numSamples; i++) {
+    int distance = getDistance();
+    sum += distance;
+    delay(50);  // Small delay between readings
+  }
+  return sum / numSamples;
+}
+
+void  loop() {
+  Time++;
+
+  int distance = getAverageDistance(30);
   if ((0 < distance) && (distance < height_of_tank)) {
+    //Serial.println(distance);
     Send_data(distance);
+  }
+  else 
+  {
+    //Serial.println("Wrong reading " + String(distance));
+    distance_old = distance;
   }
   
 } 

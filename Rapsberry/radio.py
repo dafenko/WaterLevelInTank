@@ -20,8 +20,15 @@ ser = serial.Serial(
     exclusive=False
 )
 
-data_pattern = re.compile(r'^\d+,\d+,\d+,\d+$')
+data_pattern = re.compile(r'^\d+,\d+,\d+$')
 latest_data = None
+
+height_of_tank = 190
+min_level_of_water = 30
+max_level_of_water = height_of_tank - 25
+
+def map_value(x, in_min, in_max, out_min, out_max):
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 def read_serial_data():
     global latest_data
@@ -31,6 +38,7 @@ def read_serial_data():
             ser.reset_input_buffer()
             if data:
                 decoded_data = data.decode('utf-8', errors='ignore').strip()
+                #print(f"decoded_data {decoded_data}")
                 if data_pattern.match(decoded_data):
                     latest_data = decoded_data
         except serial.SerialException as e:
@@ -46,17 +54,20 @@ threading.Thread(target=read_serial_data, daemon=True).start()
 @app.route('/data', methods=['GET'])
 def get_data():
     if latest_data:
-        sensor_id, water_level_percent, distance, crc_sum  = latest_data.split(',')
-        sum = int(sensor_id) + int(water_level_percent) + int(distance)
+        sensor_id, distance, crc_sum  = latest_data.split(',')
+        sum = int(sensor_id) + int(distance)
         print(f"sum {sum}")
         if sum == int(crc_sum) :
+            level_of_water = height_of_tank - int(distance)
+            water_level_percent = map_value(level_of_water, min_level_of_water, max_level_of_water, 0, 100)
+            water_level_percent = round(int(water_level_percent), 2)
             return jsonify({
                 'sensor_id': sensor_id,
                 'water_level_percent': water_level_percent,
                 'distance': distance
             })
         else:
-            print(f"CRC chech didn't passed {sensor_id} {water_level_percent} {distance} {crc_sum}")
+            print(f"CRC chech didn't passed {sensor_id} {distance} {crc_sum}")
     return jsonify({'error': 'No data available'})
 
 @app.route('/')
