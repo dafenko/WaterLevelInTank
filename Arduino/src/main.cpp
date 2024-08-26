@@ -52,7 +52,7 @@ void Transmit_data(int senzor_id, int distance) {
 
 void Send_data(int distance) {
   // Send data every 100 ms or instantly if the distance changes
-  if (Time > 1000 || distance != distance_old) {
+  if (Time > 10 || distance != distance_old) {
     Transmit_data(senzor_id, distance);
     Time = 0;
     distance_old = distance;

@@ -38,7 +38,7 @@ def read_serial_data():
             ser.reset_input_buffer()
             if data:
                 decoded_data = data.decode('utf-8', errors='ignore').strip()
-                #print(f"decoded_data {decoded_data}")
+                print(f"decoded_data {decoded_data}")
                 if data_pattern.match(decoded_data):
                     latest_data = decoded_data
         except serial.SerialException as e:
