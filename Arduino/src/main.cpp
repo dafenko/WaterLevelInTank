@@ -6,6 +6,10 @@ SoftwareSerial HC12(4, 5);   // HC-12 TX Pin 4, RX Pin 5
 
 const int trig = 3;          // Trigger pin of ultrasonic sensor
 const int echo = 2;          // Echo pin of ultrasonic sensor
+const int power_radio = 8;
+const int power_ult_sensor_1 = 6;
+const int power_ult_sensor_2 = 7;
+
 const int senzor_id = 1;
 const int height_of_tank = 200;
 const float alpha = 0.1;     // EMA Smoothing factor (between 0 and 1)
@@ -13,7 +17,22 @@ long distance_old = 0;
 int Time = 0;
 float ema_value = 0;         // Initial EMA value
 
+void powerOnDevices() {
+  // turn on radio
+  pinMode(power_radio, OUTPUT);
+  digitalWrite(power_radio, HIGH); 
+  // turn on ultrasound sensor
+  pinMode(power_ult_sensor_1, OUTPUT);
+  pinMode(power_ult_sensor_2, OUTPUT);
+  digitalWrite(power_ult_sensor_1, HIGH); 
+  digitalWrite(power_ult_sensor_2, HIGH); 
+
+  delay(100);  // Adjust as needed
+}
+
 void setup() {
+  powerOnDevices();
+
   Serial.begin(9600);        // Initialize Serial communication at 9600 baud
   HC12.begin(9600);          // Initialize HC-12 communication at 9600 baud
   pinMode(trig, OUTPUT);     

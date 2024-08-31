@@ -9,3 +9,21 @@ https://projecthub.arduino.cc/Manusha_Ramanayake/wireless-water-tank-level-meter
 
 https://www.pi4j.com/1.2/pins/model-b-rev1.html
 https://docs.arduino.cc/resources/pinouts/A000005-full-pinout.pdf
+
+https://tutorials.probots.co.in/communicating-with-a-waterproof-ultrasonic-sensor-aj-sr04m-jsn-sr04t/
+
+--- 
+power & sleep
+
+https://docs.arduino.cc/learn/electronics/low-power/
+
+https://github.com/RalphBacon/Arduino-Deep-Sleep/blob/master/Sleep_ATMEGA328P_Timer.ino
+
+https://forum.arduino.cc/t/best-approach-to-make-arduino-sleep-then-wake-up-and-take-a-measurement/318632/3
+
+https://gist.github.com/stojg/aec2c8c54c29c0fab407
+
+https://www.youtube.com/watch?v=usKaGRzwIMI
+
+https://www.youtube.com/watch?v=5cYN5-Spnos&t=240s
+
