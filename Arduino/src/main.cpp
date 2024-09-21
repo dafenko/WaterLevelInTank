@@ -212,7 +212,7 @@ void loop() {
 
   // measure after waking up
   //for (int i = 0; i < max_measurements; i++) {
-  powerOnDevices();
+  // powerOnDevices();
   delay(100);
   measureAndTransmit();
   //}
