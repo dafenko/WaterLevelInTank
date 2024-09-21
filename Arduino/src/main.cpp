@@ -4,15 +4,14 @@
 #include <avr/power.h>
 #include <avr/wdt.h>
 
+const int ult_sensonr_rx = 2;          // Trigger pin of ultrasonic sensor
+const int ult_sensor_tx = 3;          // Echo pin of ultrasonic sensor
+
 // Constants and Variables
 SoftwareSerial HC12(4, 5);   // HC-12 TX Pin 4, RX Pin 5
+SoftwareSerial jsnSerial(ult_sensonr_rx, ult_sensor_tx);
 
-const int led = 13;
-const int trig = 3;          // Trigger pin of ultrasonic sensor
-const int echo = 2;          // Echo pin of ultrasonic sensor
 const int power_radio = 8;
-const int power_ult_sensor_1 = 6;
-const int power_ult_sensor_2 = 7;
 
 const int senzor_id = 1;
 const int height_of_tank = 200;
@@ -21,10 +20,11 @@ long distance_old = 0;
 float ema_value = 0;         // Initial EMA value
 
 volatile int f_wdt=1;
-// I need to sleep it for 16 seconds
+// I need to sleep it for 72 seconds
 volatile int sleep_counts = 0;
 const int max_sleep_rounds = 3;
-const int max_measurements = 20;
+const int max_measurements = 5;
+const int max_transmit_loops = 10;
 
 // Watchdog Interrupt Service. This is executed when watchdog timed out.
 ISR(WDT_vect) {
@@ -33,7 +33,6 @@ ISR(WDT_vect) {
 		// the watchdog cycle needs to run longer than the maximum of eight
 		// seconds.
     sleep_counts++;
-    Serial.println(sleep_counts);
     if (sleep_counts >= max_sleep_rounds) {
       f_wdt=1;
       sleep_counts = 0;
@@ -111,11 +110,6 @@ void powerOnDevices() {
   // turn on radio
   pinMode(power_radio, OUTPUT);
   digitalWrite(power_radio, HIGH); 
-  // turn on ultrasound sensor
-  pinMode(power_ult_sensor_1, OUTPUT);
-  pinMode(power_ult_sensor_2, OUTPUT);
-  digitalWrite(power_ult_sensor_1, HIGH); 
-  digitalWrite(power_ult_sensor_2, HIGH);   
 }
 
 void setup() {
@@ -124,30 +118,53 @@ void setup() {
 
   Serial.begin(9600);        // Initialize Serial communication at 9600 baud
   HC12.begin(9600);          // Initialize HC-12 communication at 9600 baud
-  pinMode(trig, OUTPUT);     
-  digitalWrite(trig, LOW);   // Set trigger pin to LOW
-  pinMode(echo, INPUT);      // Set echo pin as input
-  
-	pinMode(led, OUTPUT);
+
 	setupWatchDogTimer();
 	Serial.println("Initialisation complete."); delay(100);
 
+  jsnSerial.begin(9600);
 }
 
 float getEMA(int newReading, float prevEMA, float alpha) {
   return alpha * newReading + (1 - alpha) * prevEMA;
 }
 
-int getDistance() {
-  digitalWrite(trig, LOW); 
-  delayMicroseconds(5);
-  digitalWrite(trig, HIGH); 
-  delayMicroseconds(10);
-  digitalWrite(trig, LOW);
+unsigned int getDistance(){
+  //Serial.println("getDistance");
+  unsigned int distance;
+  byte startByte, h_data, l_data, sum = 0;
+  byte buf[3];
   
-  long duration = pulseIn(echo, HIGH, 30000);  // Timeout after 30ms
-  int distance = (duration * 0.034) / 2;       // Convert duration to distance (cm)
+  startByte = (byte)jsnSerial.read();
+  if(startByte == 255){
+    jsnSerial.readBytes(buf, 3);
+    h_data = buf[0];
+    l_data = buf[1];
+    sum = buf[2];
+    distance = (h_data<<8) + l_data;
+    if((( startByte + h_data + l_data)&0xFF) != sum){
+      Serial.println("Invalid result");
+    }
+    else{
+      Serial.print("Distance [mm]: "); 
+      Serial.println(distance);
+	  return distance;
+    } 
+  } 
 
+  return 0;
+}
+
+int getDistanceExt() {
+  //Serial.println("getDistanceExt");
+   
+  jsnSerial.write(0x01); 
+  while (jsnSerial.available() == 0){
+	jsnSerial.write(0x01);  
+	delay(50);
+  }
+
+  int distance = round(getDistance()/10); // convert to cm and round
   // Return distance only if it's within a reasonable range
   if (distance > 0 && distance < height_of_tank) {
     return distance;
@@ -164,14 +181,18 @@ void Transmit_data(int senzor_id, int distance) {
 }
 
 void measureAndTransmit() {
+  int raw_distance = getDistanceExt();         // Get raw distance from the sensor
+  //ema_value = getEMA(raw_distance, ema_value, alpha);  // Apply EMA filter
 
-  int raw_distance = getDistance();         // Get raw distance from the sensor
-  ema_value = getEMA(raw_distance, ema_value, alpha);  // Apply EMA filter
+  //int filtered_distance = round(ema_value); // Round EMA to the nearest integer
+  int filtered_distance = raw_distance;
 
-  int filtered_distance = round(ema_value); // Round EMA to the nearest integer
-
+  Serial.println("filtered distance" +  filtered_distance);
   if (filtered_distance > 0 && filtered_distance < height_of_tank) {
-    Transmit_data(senzor_id, filtered_distance);           // Send the filtered distance data
+    for (int i=0; i<max_transmit_loops; i++) {
+      Transmit_data(senzor_id, filtered_distance);           // Send the filtered distance data
+      delay(100);
+    }
   }
 }
 
@@ -181,22 +202,18 @@ void loop() {
 		return;
 	}
 
-	// Toggle the LED on
-	digitalWrite(led, 1);
-	// wait
-	delay(20);
-	// Toggle the LED off
-	digitalWrite(led, 0);
-
 	// clear the flag so we can run above code again after the MCU wake up
 	f_wdt = 0;
 
 	// Re-enter sleep mode.
+  Serial.println("entering sleep");
 	enterSleep();
+  Serial.println("waking up");
 
   // measure after waking up
-  for (int i = 0; i < max_measurements; i++) {
-    measureAndTransmit();
-    delay(100);
-  }
+  //for (int i = 0; i < max_measurements; i++) {
+  powerOnDevices();
+  delay(100);
+  measureAndTransmit();
+  //}
 }
