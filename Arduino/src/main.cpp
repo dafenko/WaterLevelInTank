@@ -1,11 +1,14 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 
+const int ult_sensonr_rx = 2;          // Trigger pin of ultrasonic sensor
+const int ult_sensor_tx = 3;          // Echo pin of ultrasonic sensor
+
 // Constants and Variables
 SoftwareSerial HC12(4, 5);   // HC-12 TX Pin 4, RX Pin 5
+SoftwareSerial jsnSerial(ult_sensonr_rx, ult_sensor_tx);
 
-const int trig = 3;          // Trigger pin of ultrasonic sensor
-const int echo = 2;          // Echo pin of ultrasonic sensor
+
 const int power_radio = 8;
 const int power_ult_sensor_1 = 6;
 const int power_ult_sensor_2 = 7;
@@ -35,25 +38,49 @@ void setup() {
 
   Serial.begin(9600);        // Initialize Serial communication at 9600 baud
   HC12.begin(9600);          // Initialize HC-12 communication at 9600 baud
-  pinMode(trig, OUTPUT);     
-  digitalWrite(trig, LOW);   // Set trigger pin to LOW
-  pinMode(echo, INPUT);      // Set echo pin as input
+  jsnSerial.begin(9600);
 }
 
 float getEMA(int newReading, float prevEMA, float alpha) {
   return alpha * newReading + (1 - alpha) * prevEMA;
 }
 
-int getDistance() {
-  digitalWrite(trig, LOW); 
-  delayMicroseconds(5);
-  digitalWrite(trig, HIGH); 
-  delayMicroseconds(10);
-  digitalWrite(trig, LOW);
+unsigned int getDistance(){
+  //Serial.println("getDistance");
+  unsigned int distance;
+  byte startByte, h_data, l_data, sum = 0;
+  byte buf[3];
   
-  long duration = pulseIn(echo, HIGH, 30000);  // Timeout after 30ms
-  int distance = (duration * 0.034) / 2;       // Convert duration to distance (cm)
+  startByte = (byte)jsnSerial.read();
+  if(startByte == 255){
+    jsnSerial.readBytes(buf, 3);
+    h_data = buf[0];
+    l_data = buf[1];
+    sum = buf[2];
+    distance = (h_data<<8) + l_data;
+    if((( startByte + h_data + l_data)&0xFF) != sum){
+      Serial.println("Invalid result");
+    }
+    else{
+      Serial.print("Distance [mm]: "); 
+      Serial.println(distance);
+	  return distance;
+    } 
+  } 
 
+  return 0;
+}
+
+int getDistanceExt() {
+  //Serial.println("getDistanceExt");
+   
+  jsnSerial.write(0x01); 
+  while (jsnSerial.available() == 0){
+	jsnSerial.write(0x01);  
+	delay(50);
+  }
+
+  int distance = round(getDistance()/10); // convert to cm and round
   // Return distance only if it's within a reasonable range
   if (distance > 0 && distance < height_of_tank) {
     return distance;
@@ -81,10 +108,11 @@ void Send_data(int distance) {
 void loop() {
   Time++;
   
-  int raw_distance = getDistance();         // Get raw distance from the sensor
-  ema_value = getEMA(raw_distance, ema_value, alpha);  // Apply EMA filter
+  int raw_distance = getDistanceExt();         // Get raw distance from the sensor
+  //ema_value = getEMA(raw_distance, ema_value, alpha);  // Apply EMA filter
 
-  int filtered_distance = round(ema_value); // Round EMA to the nearest integer
+  //int filtered_distance = round(ema_value); // Round EMA to the nearest integer
+  int filtered_distance = raw_distance;
 
   if (filtered_distance > 0 && filtered_distance < height_of_tank) {
     Send_data(filtered_distance);           // Send the filtered distance data
