@@ -1,0 +1,62 @@
+// ATtiny85 Blink!
+#include <Arduino.h>
+#include <avr/sleep.h>
+#include <avr/power.h>
+#include <avr/wdt.h>
+
+#define LED_PIN PB0
+
+volatile int f_wdt = 1;
+volatile int sleep_counts = 0;
+const int max_sleep_rounds = 10;
+
+// Watchdog Interrupt Service Routine (ISR)
+ISR(WDT_vect) {
+  if (f_wdt == 0) {
+    sleep_counts++;
+    if (sleep_counts >= max_sleep_rounds) {
+      f_wdt = 1;
+      sleep_counts = 0;
+    }
+  }
+}
+
+// Setup Watchdog Timer (WDT)
+void setupWatchDogTimer() {
+  MCUSR &= ~(1 << WDRF); // Clear reset flag
+  WDTCR |= (1 << WDCE) | (1 << WDE); // Set WDCE and WDE
+  WDTCR = (1 << WDP2) | (1 << WDP1) | (1 << WDP0); // Set WDT to 8 seconds timeout
+  WDTCR |= _BV(WDIE); // Enable WDT interrupt
+}
+
+
+// Enter ATtiny85 into sleep mode
+void enterSleep(void) {
+  digitalWrite(LED_PIN, LOW); // turn off radio 
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // Deep sleep mode
+  sleep_enable();
+  sleep_mode(); // Go to sleep
+  sleep_disable(); // Wake up
+  power_all_enable(); // Re-enable peripherals
+  digitalWrite(LED_PIN, HIGH); // turn on radio
+}
+
+void setup() {
+  pinMode(LED_PIN, OUTPUT);
+
+  setupWatchDogTimer();
+}
+
+void loop() {
+  if (f_wdt != 1) {
+    return; // Wait for WDT wakeup
+  }
+  f_wdt = 0; // Clear the flag for the next cycle
+
+  enterSleep(); // Go to sleep and wake up via WDT
+
+  digitalWrite(LED_PIN, HIGH);
+  delay(1000);
+  digitalWrite(LED_PIN, LOW);
+  delay(1000);
+}
