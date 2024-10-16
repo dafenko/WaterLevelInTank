@@ -30,6 +30,9 @@ https://www.youtube.com/watch?v=5cYN5-Spnos&t=240s
 ----
 AtTiny 
 https://www.instructables.com/ATTinyCore-HW-260-and-the-ATTINY85/
+fuse calculator
 
 USBISP
 https://wiki.fryktoria.com/doku.php?id=arduino:how-to-fix-a-usb-isp-programmer-and-make-it-work-with-arduino-ide-on-linux
+
+
