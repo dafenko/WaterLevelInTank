@@ -13,7 +13,7 @@ volatile byte counterWD = 0;            // Count how many times WDog has fired. 
 
 // device specific
 const int senzor_id = 1;
-const int height_of_tank = 200;
+const int maxheight = 200;
 
 const int hc12_tx = PB1;
 const int hc12_rx = PB0;
@@ -25,6 +25,23 @@ const int max_sleep_rounds = 9;
 
 SoftwareSerial HC12(hc12_tx, hc12_rx);   // HC-12 TX on Pin 2, RX on Pin 3
 SoftwareSerial jsnSerial(ult_sensonr_rx, ult_sensor_tx);
+
+long read_vcc() {
+  //reads internal 1V1 reference against VCC
+  ADMUX = _BV(MUX3) | _BV(MUX2); // For ATtiny85/45
+  delay(2); // Wait for Vref to settle
+  ADCSRA |= _BV(ADSC); // Convert
+  while (bit_is_set(ADCSRA, ADSC));
+  uint8_t low = ADCL;
+  unsigned int val = (ADCH << 8) | low;
+  //discard previous result
+  ADCSRA |= _BV(ADSC); // Convert
+  while (bit_is_set(ADCSRA, ADSC));
+  low = ADCL;
+  val = (ADCH << 8) | low;
+  
+  return ((long)1024 * 1100) / val;
+}
 
 void resetWatchDog ()
 {
@@ -53,7 +70,7 @@ void sleepNow ()
   sleep_disable ();                       // after ISR fires, return to here and disable sleep
   power_all_enable ();                    // turn on power to ADC, TIMER1 and 2, Serial Interface
   
-  // ADCSRA = saveADCSRA;                 // turn on and restore the ADC if needed. Commented out, not needed.
+  ADCSRA = saveADCSRA;                 // turn on and restore the ADC if needed. Commented out, not needed.
   
 } // end of sleepNow ()
 
@@ -85,26 +102,28 @@ int getDistanceExt() {
     delay(50);
   }
   int distance = round(getDistance() / 10); // Convert to cm
-  if (distance > 0 && distance < height_of_tank) {
+  if (distance > 0 && distance < maxheight) {
     return distance;
   } else {
-    return height_of_tank; // Return max value if out of range
+    return maxheight; // Return max value if out of range
   }
 }
 
-void Transmit_data(int senzor_id, int distance) {
-  int crc_sum = senzor_id + distance;
-  String message = String(senzor_id) + "," + String(distance) + "," + String(crc_sum);
+void Transmit_data(int senzor_id, int distance, long vcc) {
+  int crc_sum = senzor_id + distance + vcc;
+  String message = String(senzor_id) + "," + String(distance) + "," + String(vcc) + "," + String(crc_sum) ;
   HC12.println(message);
 }
 
 void measureAndTransmit() {
+  long vcc = read_vcc();  // Measure the VCC voltage level
+
   int raw_distance = getDistanceExt();
   int filtered_distance = raw_distance; // Apply EMA filter if necessary
 
-  if (filtered_distance > 0 && filtered_distance < height_of_tank) {
+  if (filtered_distance > 0 && filtered_distance < maxheight) {
     for (int i = 0; i < max_transmit_loops; i++) {
-      Transmit_data(senzor_id, filtered_distance);
+      Transmit_data(senzor_id, filtered_distance, vcc);
       delay(100);
     }
   }

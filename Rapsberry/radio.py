@@ -20,7 +20,7 @@ ser = serial.Serial(
     exclusive=False
 )
 
-data_pattern = re.compile(r'^\d+,\d+,\d+$')
+data_pattern = re.compile(r'^\d+,\d+,\d+,\d+$')
 latest_data = None
 
 height_of_tank = 190
@@ -54,8 +54,8 @@ threading.Thread(target=read_serial_data, daemon=True).start()
 @app.route('/data', methods=['GET'])
 def get_data():
     if latest_data:
-        sensor_id, distance, crc_sum  = latest_data.split(',')
-        sum = int(sensor_id) + int(distance)
+        sensor_id, distance, vcc, crc_sum  = latest_data.split(',')
+        sum = int(sensor_id) + int(distance) + int(vcc)
         print(f"sum {sum}")
         if sum == int(crc_sum) :
             level_of_water = height_of_tank - int(distance)
@@ -64,7 +64,8 @@ def get_data():
             return jsonify({
                 'sensor_id': sensor_id,
                 'water_level_percent': water_level_percent,
-                'distance': distance
+                'distance': distance,
+                'vcc': vcc
             })
         else:
             print(f"CRC chech didn't passed {sensor_id} {distance} {crc_sum}")
