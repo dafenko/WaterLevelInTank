@@ -49,13 +49,12 @@ mqtt to home assistant
 
 Mosquito broker addon 
 MoSquito integration
+https://www.home-assistant.io/integrations/mqtt
+https://github.com/home-assistant/addons/blob/master/mosquitto/DOCS.md
 
 
 --- 
-
 Rapsberry 
 
-
 https://github.com/unixorn/ha-mqtt-discoverable?tab=readme-ov-file#usage-8
-
-pip install paho-mqtt
+sudo pip3 install paho-mqtt
