@@ -5,6 +5,10 @@ import serial
 import json
 import threading
 import re
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Get MQTT configuration from environment variables
 MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
@@ -56,7 +60,7 @@ def read_serial_data():
             ser.reset_input_buffer()
             if data:
                 decoded_data = data.decode('utf-8', errors='ignore').strip()
-                print(f"Decoded data: {decoded_data}")
+                logging.info(f"Decoded data: {decoded_data}")
                 
                 # Validate and parse data
                 if data_pattern.match(decoded_data):
@@ -72,13 +76,13 @@ def read_serial_data():
                             "level_of_water": height_of_tank - int(distance)
                         }
                     else:
-                        print(f"CRC check failed for sensor {sensor_id}")
+                        logging.error(f"CRC check failed for sensor {sensor_id}")
         except serial.SerialException as e:
-            print(f"Serial exception: {e}")
+            logging.error(f"Serial exception: {e}")
             ser.close()
             ser.open()
         except Exception as e:
-            print(f"Error: {e}")
+            logging.error(f"Error: {e}")
 
 # Initialize MQTT client for a specific sensor ID
 def get_mqtt_client(sensor_id):
@@ -129,6 +133,7 @@ def register_sensor_in_homeassistant(client, sensor_id):
     }
 
     for key, payload in config_payloads.items():
+        logging.info(f"Registered at mqtt {topic_prefix}{key}/config")
         config_topic = f"{topic_prefix}{key}/config"
         client.publish(config_topic, json.dumps(payload), retain=True)
 
@@ -153,16 +158,19 @@ def send_data_to_mqtt():
                 json.dumps({"sensor_id": sensor_id, "water_level_percent": water_level_percent}),
                 retain=False
             )
+            logging.info(f"Publishing mqtt {topic_prefix}water_level_percent/state")
             client.publish(
                 f"{topic_prefix}vcc/state",
                 json.dumps({"sensor_id": sensor_id, "vcc": data["vcc"]}),
                 retain=False
             )
+            logging.info(f"Publishing mqtt {topic_prefix}vcc/state")
             client.publish(
                 f"{topic_prefix}distance/state",
                 json.dumps({"sensor_id": sensor_id, "distance": data["distance"]}),
                 retain=False
             )
+            logging.info(f"Publishing mqtt {topic_prefix}distance/state")
 
         time.sleep(5)  # Avoid excessive CPU usage
 
