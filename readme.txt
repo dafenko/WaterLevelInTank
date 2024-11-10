@@ -1,6 +1,8 @@
 scp -i ~/.ssh/Matus.key index.html radio.py  matus@192.168.2.18:~/python/
 ssh matus@192.168.2.18 -i ~/.ssh/Matus.key
 
+scp -i ~/.ssh/Matus.key -r /home/dafe/git/WaterLevelInTank/Rapsberry/ha-mqtt matus@192.168.2.18:~/python/
+
 
 
 
@@ -35,4 +37,25 @@ fuse calculator
 USBISP
 https://wiki.fryktoria.com/doku.php?id=arduino:how-to-fix-a-usb-isp-programmer-and-make-it-work-with-arduino-ide-on-linux
 
+---- 
+Home asistant
 
+Server installation via kvm
+https://www.home-assistant.io/installation/linux
+
+http://VMIP:8123/
+
+mqtt to home assistant
+
+Mosquito broker addon 
+MoSquito integration
+
+
+--- 
+
+Rapsberry 
+
+
+https://github.com/unixorn/ha-mqtt-discoverable?tab=readme-ov-file#usage-8
+
+pip install paho-mqtt

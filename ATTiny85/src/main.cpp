@@ -23,24 +23,40 @@ const int power_radio = PB2;
 const int max_transmit_loops = 10;
 const int max_sleep_rounds = 9;
 
+const int numer_of_readings = 10;     // EMA Smoothing factor (between 0 and 1)
+
 SoftwareSerial HC12(hc12_tx, hc12_rx);   // HC-12 TX on Pin 2, RX on Pin 3
 SoftwareSerial jsnSerial(ult_sensonr_rx, ult_sensor_tx);
+
+// Function to sort an array of readings (simple bubble sort)
+void bubbleSort(uint16_t arr[], int n) {
+    for (int i = 0; i < n-1; i++) {
+        for (int j = 0; j < n-i-1; j++) {
+            if (arr[j] > arr[j+1]) {
+                uint16_t temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = temp;
+            }
+        }
+    }
+}
 
 long read_vcc() {
   //reads internal 1V1 reference against VCC
   ADMUX = _BV(MUX3) | _BV(MUX2); // For ATtiny85/45
   delay(2); // Wait for Vref to settle
   ADCSRA |= _BV(ADSC); // Convert
-  while (bit_is_set(ADCSRA, ADSC));
-  uint8_t low = ADCL;
-  unsigned int val = (ADCH << 8) | low;
-  //discard previous result
-  ADCSRA |= _BV(ADSC); // Convert
-  while (bit_is_set(ADCSRA, ADSC));
-  low = ADCL;
-  val = (ADCH << 8) | low;
-  
-  return ((long)1024 * 1100) / val;
+  uint16_t readings[numer_of_readings];
+
+  for (int i = 0; i < numer_of_readings ; i++) {
+    while (bit_is_set(ADCSRA, ADSC));
+    uint8_t low = ADCL;
+    uint16_t val = (ADCH << 8) | low;
+    readings[i] = val;
+  }
+  bubbleSort(readings, numer_of_readings);
+
+  return ((long)1024 * 1100) / readings[numer_of_readings / 2];
 }
 
 void resetWatchDog ()
